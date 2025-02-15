@@ -1,0 +1,99 @@
+
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <stdio.h>
+#include <netdb.h>
+#include <string.h>
+#include <stdlib.h>
+#include <arpa/inet.h>
+#include <string.h>
+#include "client.h"
+#define SA struct sockaddr 
+#define PORT 22228
+
+
+int main(void) {
+
+	struct sockaddr_storage their_addr;   // structura pt configurarea adresei clientului
+	struct sockaddr_in server_addr;   // structura pt configurarea adresei serverului
+	int  siteSocket, clientSocket, result, trimitere, comanda;
+	char buffer[500];  // buffer pentru stocarea datelor
+	socklen_t addr_size;   // declararea dimensiunii adresei 
+        char *msg = "Comanda neimplementata";   // mesaj implicit pentru comenzi diferite de comanda specificata
+
+        // socket pentru conexiunea cu site-ul
+    	siteSocket = socket(AF_INET, SOCK_STREAM, 0); 
+    	if ( siteSocket == -1) { 
+       		printf("socket creation failed...\n"); 
+       	 	exit(0); 
+    	} 
+    	else
+        	printf("Socket successfully created..\n"); 
+
+    	bzero(&server_addr, sizeof(server_addr));
+	
+    	server_addr.sin_family = AF_INET; 
+    	server_addr.sin_addr.s_addr = htonl(INADDR_ANY); 
+    	server_addr.sin_port = htons(PORT);
+
+        // se verifica daca socket-ul s-a legat la adresa si port
+        if ((bind(siteSocket, (SA*)&server_addr, sizeof(server_addr))) != 0) {
+       		 printf("Socket bind failed...\n");
+       		 exit(0);
+   	 }
+  	else
+       		 printf("Socket successfully bound..\n");
+	
+        // functia listen() configureaza socket-ul sa accepte conexiuni, valoarea 5 reprezinta dimensiunea cozii de asteptare
+    	if ((listen( siteSocket, 5)) != 0) { 
+       		 printf("Listen failed...\n"); 
+       		 exit(0); 
+   	} 
+   	 else
+       		 printf("Server listening..\n");  
+
+      // prima bucla do..while gestionează procesul de acceptare a conexiunilor multiple de la clienți. Serverul rămâne activ, acceptând noi clienți, iar pentru fiecare client creează un socket (clientSocket)
+      // detaliile clientului se stocheaza invariabila their_addr
+      do {
+		 addr_size = sizeof their_addr;
+                 clientSocket = accept( siteSocket, (struct sockaddr *)&their_addr, &addr_size);
+
+	 	 if (clientSocket == -1) {
+			perror("accept()");
+	         }
+		printf("\nConexiune reusita");
+		
+                // a doua bucla do..while gestioneaza comunicarea cu un client
+		// bucla continua atat timp cat recv() primeste date valide, adica cat timp clientul este conectat
+		do {
+                        // funcția recv() citește datele trimise de client și le salvează într-un buffer de dimensiune 500
+                        result = recv(clientSocket, buffer, 500, 0);
+			buffer[3] = '\0';
+			printf("\nComanda: %s" , buffer);
+
+ 			// se verifică dacă clientul a trimis comanda "08#". Dacă da, se apelează funcția ClientMessage(). 
+			// dacă comanda primită este diferită de "08#", serverul trimite un mesaj implicit 
+			if (strcmp("08#", buffer) == 0) {
+				ClientMessage(new_socket);
+			}
+			else if (strcmp("08#", buffer) != 0) {
+				 trimitere = send(clientSocket, msg, strlen(msg), 0);
+	               		 if (trimitere == -1){
+		       			 perror("send()");
+					 exit(0);
+				 }
+			}
+			else if (result == 0) {
+				printf("\nConexiune inchisa");
+			}
+			else {
+				printf("\nConexiune esuata");
+			}
+
+	   	}while(result > 0);
+	
+	}while(clientSocket != -1);
+      close(clientSocket);
+	
+}
